@@ -1,0 +1,21 @@
+{
+  "name": "@f1web/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@f1web/shared": "*",
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.182.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.3.4"
+  }
+}
