@@ -1,7 +1,11 @@
 export const DEFAULT_PORT = 8090;
 
-/** How often each client sends its own car state to the server. */
-export const NET_SEND_HZ = 15;
+/**
+ * How often each client sends its own car state to the server. Matches the
+ * broadcast rate — a slower send rate makes the server re-broadcast stale
+ * positions, which renders as stutter on other screens.
+ */
+export const NET_SEND_HZ = 20;
 /** How often the server broadcasts all car states to a room. */
 export const NET_BROADCAST_HZ = 20;
 /** Render delay for remote cars (interpolation buffer). */
@@ -11,7 +15,7 @@ export const COUNTDOWN_MS = 3200;
 export const DEFAULT_LAPS = 3;
 export const MIN_LAPS = 1;
 export const MAX_LAPS = 10;
-export const MAX_PLAYERS = 8;
+export const MAX_PLAYERS = 12;
 /** Race ends for everyone this long after the first player finishes. */
 export const FINISH_TIMEOUT_MS = 60_000;
 
@@ -24,4 +28,8 @@ export const CAR_COLORS = [
   "#ff87bc", // Alpine pink
   "#fff200", // yellow
   "#b0b0b0", // silver
+  "#7b2ff2", // violet
+  "#00a3e0", // light blue
+  "#9acd32", // lime
+  "#ff5e00", // deep orange
 ];

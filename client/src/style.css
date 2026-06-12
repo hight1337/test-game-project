@@ -498,6 +498,7 @@ button.secondary {
 .results-list li:nth-child(6) { animation-delay: 0.5s; }
 .results-list li:nth-child(7) { animation-delay: 0.58s; }
 .results-list li:nth-child(8) { animation-delay: 0.66s; }
+.results-list li:nth-child(n + 9) { animation-delay: 0.72s; }
 
 .results-list li.me {
   border-color: rgba(225, 6, 0, 0.55);

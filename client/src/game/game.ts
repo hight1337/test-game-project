@@ -76,6 +76,8 @@ export class Game {
   private acc = 0;
   private started = false;
   private finishedNotified = false;
+  /** remotes we're currently touching — full impulse only on contact entry */
+  private contacts = new Set<string>();
   /** wall-clock deadline after the first finisher (online races) */
   private finishDeadline: number | null = null;
   private disposed = false;
@@ -138,6 +140,7 @@ export class Game {
       sim: this.sim,
       track: this.track,
       tracker: this.tracker,
+      remotes: this.remotes,
     };
   }
 
@@ -151,6 +154,7 @@ export class Game {
   }
 
   removeRemote(id: string) {
+    this.contacts.delete(id);
     const rc = this.remotes.get(id);
     if (!rc) return;
     this.world.scene.remove(rc.visual.group);
@@ -247,7 +251,7 @@ export class Game {
       const fz = Math.cos(this.sim.heading);
       const lx = fz;
       const lz = -fx;
-      for (const rc of this.remotes.values()) {
+      for (const [rcId, rc] of this.remotes) {
         if (!rc.visual.group.visible || rc.fin) continue;
         const dx = this.sim.x - rc.x;
         const dz = this.sim.z - rc.z;
@@ -256,8 +260,13 @@ export class Game {
         const dL = dx * lx + dz * lz;
         const q2 =
           (dF / CONTACT_HALF_LEN) ** 2 + (dL / CONTACT_HALF_WID) ** 2;
-        if (q2 >= 1 || q2 < 1e-4) continue;
+        if (q2 >= 1 || q2 < 1e-4) {
+          this.contacts.delete(rcId);
+          continue;
+        }
         const q = Math.sqrt(q2);
+        const isNewContact = !this.contacts.has(rcId);
+        this.contacts.add(rcId);
 
         // contact normal = ellipse gradient, mapped back to world space
         let nF = dF / (CONTACT_HALF_LEN * CONTACT_HALF_LEN);
@@ -275,14 +284,19 @@ export class Game {
         const vw = this.sim.velWorld();
         const closing = -(vw.x * nx + vw.z * nz);
         if (closing > 0) {
-          // frontal share of the contact decides how hard it bites:
-          // head-on ~1.35x (firm stop + bounce), pure side ~0.55x (deflect)
+          // car-to-car is a MOMENTUM EXCHANGE, not a wall: on contact ENTRY
+          // equal masses share the closing speed (we lose ~half on a square
+          // hit; the other car's client shoves them forward with the rest).
+          // While contact persists only a light hold applies — re-cancelling
+          // every physics step would compound to a hard stop in ~100ms.
           const frontal = Math.abs(nF);
-          const k = 0.55 + 0.8 * frontal;
+          // entry: momentum exchange. sustained: gentle hold — 0.03/step at
+          // 60Hz halves residual closing speed roughly every 0.4s
+          const k = isNewContact ? 0.35 + 0.3 * frontal : 0.03;
           this.sim.applyImpulse(nx * closing * k, nz * closing * k);
-          // head-on contact also scrubs forward speed (crumpling, not rubbing)
-          if (frontal > 0.6 && closing > 3) {
-            this.sim.vF *= 1 - Math.min(0.25, closing * 0.012) * frontal;
+          // only a truly violent square impact crumples a little speed
+          if (isNewContact && frontal > 0.7 && closing > 12) {
+            this.sim.vF *= 0.93;
           }
         }
       }

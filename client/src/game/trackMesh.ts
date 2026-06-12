@@ -11,6 +11,13 @@ export interface TrackVisual {
 
 const ROAD_Y = 0.02;
 
+/**
+ * Tiny per-sample height ramp: where distant lap sections cross (figure-8),
+ * the two road surfaces would z-fight at identical heights — this keeps
+ * them a few millimeters apart, imperceptibly.
+ */
+const yEps = (i: number, m: number) => (i / m) * 0.012;
+
 export function buildTrackVisual(track: Track): TrackVisual {
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
@@ -51,8 +58,9 @@ function buildRoad(track: Track, disposables: { dispose(): void }[]) {
     const offsets = [
       p.wn + RUNOFF, p.wn, p.wn, -p.wp, -p.wp, -(p.wp + RUNOFF),
     ];
+    const y = ROAD_Y + yEps(i, m);
     for (const o of offsets) {
-      pos.push(p.x + p.nx * o, ROAD_Y, p.z + p.nz * o);
+      pos.push(p.x + p.nx * o, y, p.z + p.nz * o);
       uv.push(o / 9, p.dist / 9); // tiling coords for the asphalt grain
     }
     // subtle banded shade variation so the asphalt isn't flat
@@ -121,21 +129,27 @@ function buildEdgeLines(track: Track, disposables: { dispose(): void }[]) {
   const idx: number[] = [];
 
   for (const side of [1, -1]) {
-    const offset = pos.length / 3;
+    let prevDrawn = false;
     for (let i = 0; i <= m; i++) {
-      const p = s[i % m];
+      const wrapped = i % m;
+      if (track.overlap[wrapped]) {
+        prevDrawn = false;
+        continue;
+      }
+      const p = s[wrapped];
       const w = side === 1 ? p.wn : p.wp;
+      const base = pos.length / 3;
       for (const o of [w - 0.45, w - 0.12]) {
         pos.push(
           p.x + p.nx * side * o,
-          ROAD_Y + 0.008,
+          ROAD_Y + yEps(wrapped, m) + 0.008,
           p.z + p.nz * side * o,
         );
       }
-      if (i > 0) {
-        const a = offset + (i - 1) * 2;
-        idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3);
+      if (prevDrawn) {
+        idx.push(base - 2, base - 1, base, base, base - 1, base + 1);
       }
+      prevDrawn = true;
     }
   }
 
@@ -159,12 +173,16 @@ function buildKerbs(track: Track, disposables: { dispose(): void }[]) {
   const red = new THREE.Color(0xd8262a);
   const white = new THREE.Color(0xe8e8e8);
 
-  // mark kerb zones around tight-enough corners, padded a few samples
+  // mark kerb zones around tight-enough corners, padded a few samples;
+  // none where another lap section crosses through
   const kerb = new Array<boolean>(m).fill(false);
   for (let i = 0; i < m; i++) {
     if (Math.abs(s[i].curv) > 0.011) {
       for (let k = -4; k <= 4; k++) kerb[(i + k + m) % m] = true;
     }
+  }
+  for (let i = 0; i < m; i++) {
+    if (track.overlap[i]) kerb[i] = false;
   }
 
   // raised profile: road edge -> crest at mid-kerb -> back down outside,
@@ -188,7 +206,8 @@ function buildKerbs(track: Track, disposables: { dispose(): void }[]) {
         const mz = iz + p.nz * side * KERB_W * 0.45;
         const ox = ix + p.nx * side * KERB_W;
         const oz = iz + p.nz * side * KERB_W;
-        pos.push(ix, ROAD_Y + 0.012, iz, mx, ROAD_Y + 0.085, mz, ox, ROAD_Y + 0.015, oz);
+        const y = ROAD_Y + yEps(i, m);
+        pos.push(ix, y + 0.012, iz, mx, y + 0.085, mz, ox, y + 0.015, oz);
         const c = Math.floor(i / 2) % 2 === 0 ? red : white;
         for (let v = 0; v < V; v++) col.push(c.r, c.g, c.b);
         if (r > 0) {
@@ -234,20 +253,37 @@ function buildWalls(track: Track, disposables: { dispose(): void }[]) {
   const H = 1.0;
   const BLOCK = 12; // samples per color block (~36m)
 
+  // ribbons in runs, broken where another lap section crosses (figure-8) —
+  // a wall must never cut across drivable road
   for (const side of [1, -1]) {
-    const offset = pos.length / 3;
+    let runStart = -1;
+    const flushAt = (end: number) => {
+      if (runStart < 0 || end - runStart < 2) {
+        runStart = -1;
+        return;
+      }
+      const offset = pos.length / 3;
+      for (let i = runStart; i < end; i++) {
+        const p = s[i % m];
+        const w = (side === 1 ? p.wn : p.wp) + RUNOFF;
+        const x = p.x + p.nx * side * w;
+        const z = p.z + p.nz * side * w;
+        pos.push(x, 0, z, x, H, z);
+        const c = Math.floor(i / BLOCK) % 2 === 0 ? blockA : blockB;
+        tmp.copy(c).multiplyScalar(0.72); // shaded base
+        col.push(tmp.r, tmp.g, tmp.b, c.r, c.g, c.b);
+        if (i > runStart) {
+          const a = offset + (i - runStart - 1) * 2;
+          idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+        }
+      }
+      runStart = -1;
+    };
     for (let i = 0; i <= m; i++) {
-      const p = s[i % m];
-      const w = (side === 1 ? p.wn : p.wp) + RUNOFF;
-      const x = p.x + p.nx * side * w;
-      const z = p.z + p.nz * side * w;
-      pos.push(x, 0, z, x, H, z);
-      const c = Math.floor(i / BLOCK) % 2 === 0 ? blockA : blockB;
-      tmp.copy(c).multiplyScalar(0.72); // shaded base
-      col.push(tmp.r, tmp.g, tmp.b, c.r, c.g, c.b);
-      if (i > 0) {
-        const a = offset + (i - 1) * 2;
-        idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+      if (i < m && !track.overlap[i]) {
+        if (runStart < 0) runStart = i;
+      } else {
+        flushAt(i + (i === m && runStart >= 0 ? 1 : 0)); // close the loop seam
       }
     }
   }
@@ -286,7 +322,11 @@ function buildStartLine(track: Track, disposables: { dispose(): void }[]) {
   disposables.push(geo, mat, tex);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.rotation.z = -Math.atan2(s0.tx, s0.tz);
+  // in-plane angle so the strip's width axis lies along the track NORMAL
+  // (across the road) for any start heading: phi = heading + PI. The old
+  // `-heading` was a reflection — off by 2*heading, which painted the line
+  // diagonally or even lengthwise on most circuits.
+  mesh.rotation.z = Math.atan2(s0.tx, s0.tz) + Math.PI;
   // center the strip on the road (widths can be asymmetric)
   mesh.position.set(
     s0.x + s0.nx * (s0.wn - s0.wp) * 0.5,
@@ -303,7 +343,7 @@ function buildStartLine(track: Track, disposables: { dispose(): void }[]) {
 function buildGridSlots(track: Track, disposables: { dispose(): void }[]) {
   const pos: number[] = [];
   const idx: number[] = [];
-  const Y = ROAD_Y + 0.006;
+  let Y = ROAD_Y + 0.006; // adjusted per slot to ride its road segment
   const LINE_W = 0.18; // painted line thickness
   const BOX_W = 2.6; // slot width
   const BOX_L = 4.6; // side-line length
@@ -325,8 +365,10 @@ function buildGridSlots(track: Track, disposables: { dispose(): void }[]) {
     idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
   };
 
+  const m2 = track.samples.length;
   for (let slot = 0; slot < 12; slot++) {
     const g = track.gridSlot(slot);
+    Y = ROAD_Y + yEps(g.idx, m2) + 0.006;
     const fx = Math.sin(g.heading);
     const fz = Math.cos(g.heading);
     const lx = fz;

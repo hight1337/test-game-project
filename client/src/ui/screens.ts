@@ -1,6 +1,7 @@
 import {
   DEFAULT_LAPS,
   MAX_LAPS,
+  MAX_PLAYERS,
   MIN_LAPS,
   TRACKS,
   type ResultEntry,
@@ -62,7 +63,7 @@ export class Screens {
         <div class="brand">
           <span class="kicker">LIGHTS OUT</span>
           <h1>F1 <em>WEB RACER</em></h1>
-          <div class="sub">Real circuits &middot; up to 8 drivers &middot; in your browser</div>
+          <div class="sub">Real circuits &middot; up to ${MAX_PLAYERS} drivers &middot; in your browser</div>
         </div>
         <div class="field"><label>DRIVER NAME</label>
           <input id="m-name" maxlength="14" placeholder="Your name" /></div>
@@ -178,8 +179,8 @@ export class Screens {
         </li>`,
       )
       .join("");
-    // pad with ghost slots (at least a 6-slot grid, up to the 8-player cap)
-    const totalSlots = Math.min(8, Math.max(6, room.players.length + 1));
+    // pad with ghost slots (at least a 6-slot grid, up to the player cap)
+    const totalSlots = Math.min(MAX_PLAYERS, Math.max(6, room.players.length + 1));
     const empties = Array.from(
       { length: totalSlots - room.players.length },
       (_, i) => `

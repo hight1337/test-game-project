@@ -163,10 +163,9 @@ function buildTrees(
       const d = w + 12 + rand() * 60;
       const x = p.x + p.nx * side * d + (rand() - 0.5) * 14;
       const z = p.z + p.nz * side * d + (rand() - 0.5) * 14;
-      const near = track.nearest(x, z, i);
-      const sNear = samples[near.idx];
-      const limit = (near.lateral > 0 ? sNear.wn : sNear.wp) + RUNOFF + 6;
-      if (Math.abs(near.lateral) < limit) continue;
+      // clearance vs EVERY part of the lap — a spot can sit far from this
+      // section but right on top of another one (parallel straights)
+      if (track.minClearance(x, z) < 5) continue;
       spots.push({ x, z, s: 0.8 + rand() * 0.8 });
     }
   }
@@ -233,10 +232,8 @@ function buildGrandstands(
     const d = w + 14;
     const x = p.x + p.nx * side * d;
     const z = p.z + p.nz * side * d;
-    const near = track.nearest(x, z, i);
-    const sNear = s[near.idx];
-    const clear = (near.lateral > 0 ? sNear.wn : sNear.wp) + RUNOFF + 9;
-    if (Math.abs(near.lateral) < clear) continue;
+    // grandstands are deep — require generous clearance vs the whole lap
+    if (track.minClearance(x, z) < 8) continue;
 
     const stand = new THREE.Group();
     const facing = Math.atan2(p.nx * side, p.nz * side) + Math.PI;
@@ -304,6 +301,7 @@ function buildBanners(
   for (let i = 0; i < m; i += 26) {
     const p = s[i];
     if (Math.abs(p.curv) > 0.004) continue; // straights only
+    if (track.overlap[i]) continue; // no banners where walls are suppressed
     if (rand() < 0.4) continue;
     const side = rand() < 0.5 ? 1 : -1;
     const w = (side === 1 ? p.wn : p.wp) + RUNOFF;

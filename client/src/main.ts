@@ -80,7 +80,10 @@ function startPractice(trackId: string, laps: number) {
       const results: ResultEntry[] = [
         { id: "self", name, color: self.color, totalMs, bestLapMs, dnf: false },
       ];
+      const finishedGame = game;
       setTimeout(() => {
+        // skip if the player already left this session via Esc
+        if (game !== finishedGame) return;
         endGame();
         screens.showResults(results, "self", "BACK TO MENU", showMenu);
       }, 1800);

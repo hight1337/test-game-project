@@ -26,7 +26,7 @@ npm run dev        # starts the race server (:8090) and the client (:5173)
 
 Open <http://localhost:5173> — practice solo, or **CREATE RACE** and share the
 4-letter room code. Friends on the same network open
-`http://<your-ip>:5173`, enter the code and join. Up to 8 players per room.
+`http://<your-ip>:5173`, enter the code and join. Up to 12 players per room.
 
 ### Controls
 

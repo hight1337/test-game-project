@@ -53,6 +53,7 @@ export interface GridSlot {
   x: number;
   z: number;
   heading: number;
+  idx: number;
 }
 
 /**
@@ -64,6 +65,13 @@ export class Track {
   readonly length: number;
   readonly gates: number[] = [];
   readonly data: TrackData;
+  /**
+   * Samples where a DISTANT part of the lap passes through the same spot
+   * (figure-8 crossovers like Suzuka). Walls/kerbs are suppressed here so
+   * the crossing renders as an open intersection instead of a barrier
+   * cutting across the road.
+   */
+  readonly overlap: boolean[];
 
   constructor(data: TrackData) {
     this.data = data;
@@ -132,6 +140,44 @@ export class Track {
     for (let g = 0; g < N_GATES; g++) {
       this.gates.push(Math.floor((g * m) / N_GATES));
     }
+
+    // overlap detection: distant-in-lap sample pairs that nearly coincide
+    this.overlap = new Array(m).fill(false);
+    for (let i = 0; i < m; i += 2) {
+      const si = this.samples[i];
+      for (let j = i + 120; j < m; j += 2) {
+        const wrapSep = Math.min(j - i, m - (j - i));
+        if (wrapSep < 120) continue;
+        const dx = si.x - this.samples[j].x;
+        const dz = si.z - this.samples[j].z;
+        if (dx * dx + dz * dz < 20 * 20) {
+          for (let k = -10; k <= 10; k++) {
+            this.overlap[(i + k + m) % m] = true;
+            this.overlap[(j + k + m) % m] = true;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Distance from a point to the nearest barrier, checked against EVERY
+   * part of the lap (brute force; for one-time scenery placement). Positive
+   * = outside all walls by that many meters.
+   */
+  minClearance(x: number, z: number): number {
+    let best = Infinity;
+    for (let i = 0; i < this.samples.length; i += 2) {
+      const s = this.samples[i];
+      const dx = x - s.x;
+      const dz = z - s.z;
+      const lat = Math.abs(dx * s.nx + dz * s.nz);
+      const along = Math.abs(dx * s.tx + dz * s.tz);
+      if (along > 8) continue; // not abreast of this sample
+      const wall = Math.max(s.wn, s.wp) + RUNOFF;
+      best = Math.min(best, lat - wall);
+    }
+    return best;
   }
 
   headingAt(idx: number): number {
@@ -188,11 +234,12 @@ export class Track {
       x: s.x + s.nx * side,
       z: s.z + s.nz * side,
       heading: Math.atan2(s.tx, s.tz),
+      idx,
     };
   }
 
   /** respawn pose at the nearest centerline point */
-  resetPose(x: number, z: number, hint: number): GridSlot & { idx: number } {
+  resetPose(x: number, z: number, hint: number): GridSlot {
     const near = this.nearest(x, z, hint);
     const s = this.samples[near.idx];
     return { x: s.x, z: s.z, heading: this.headingAt(near.idx), idx: near.idx };
