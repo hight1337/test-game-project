@@ -50,6 +50,7 @@ export class Hud {
   private elBest = document.getElementById("time-best")!;
   private elCenter = document.getElementById("hud-center")!;
   private elWrong = document.getElementById("hud-wrongway")!;
+  private elFinishCount = document.getElementById("hud-finish-count")!;
   private map = document.getElementById("minimap") as HTMLCanvasElement;
   private mapCtx = this.map.getContext("2d")!;
   private mapBg: HTMLCanvasElement | null = null;
@@ -120,6 +121,18 @@ export class Hud {
     this.elBest.textContent = formatTime(s.bestMs);
     this.elWrong.classList.toggle("hidden", !s.wrongWay);
     this.drawMap(cars);
+  }
+
+  /** banner after the first finisher: race ends in N seconds; null hides */
+  setFinishCountdown(secondsLeft: number | null) {
+    if (secondsLeft === null) {
+      this.elFinishCount.classList.add("hidden");
+      return;
+    }
+    const s = Math.max(0, secondsLeft);
+    this.elFinishCount.textContent = `RACE ENDS IN 0:${String(s).padStart(2, "0")}`;
+    this.elFinishCount.classList.remove("hidden");
+    this.elFinishCount.classList.toggle("urgent", s <= 10);
   }
 
   centerText(text: string, color = "#ffffff") {

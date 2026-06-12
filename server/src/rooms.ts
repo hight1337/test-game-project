@@ -224,6 +224,7 @@ class Room {
         } else if (!this.finishTimer) {
           // first finisher starts the clock for everyone else
           this.finishTimer = setTimeout(() => this.endRace(), FINISH_TIMEOUT_MS);
+          this.broadcast({ t: "finishCountdown", ms: FINISH_TIMEOUT_MS });
         }
         break;
     }

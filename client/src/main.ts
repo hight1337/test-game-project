@@ -177,6 +177,8 @@ function wireNet(n: NetClient) {
 
   n.on("playerLeft", (m) => game?.removeRemote(m.id));
 
+  n.on("finishCountdown", (m) => game?.startFinishCountdown(m.ms));
+
   n.on("results", (m) => {
     endGame();
     screens.showResults(m.results, selfId, "BACK TO LOBBY", () => {

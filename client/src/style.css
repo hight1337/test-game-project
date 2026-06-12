@@ -703,6 +703,27 @@ li.p1 {
   }
 }
 
+#hud-finish-count {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) skewX(-6deg);
+  background: linear-gradient(120deg, var(--red), #a50400);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 9px 20px;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  box-shadow: 0 6px 24px rgba(225, 6, 0, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+#hud-finish-count.urgent {
+  animation: blink 0.6s steps(2) infinite;
+}
+
 #hud-help {
   position: absolute;
   bottom: 8px;

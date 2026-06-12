@@ -69,6 +69,8 @@ export type ServerMsg =
   | { t: "go" }
   | { t: "states"; now: number; list: ({ id: string } & NetCarState)[] }
   | { t: "playerLeft"; id: string }
+  /** first player crossed the line — race force-ends in `ms` */
+  | { t: "finishCountdown"; ms: number }
   | { t: "results"; results: ResultEntry[] }
   | { t: "error"; message: string };
 

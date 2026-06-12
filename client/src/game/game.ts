@@ -34,8 +34,11 @@ function getEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
   }
   return envTexture;
 }
-// car-vs-car soft collision radius, matches the upscaled visuals
-const CAR_CONTACT_DIST = 3.1;
+// car-vs-car contact envelope (ellipse in the car's frame): cars are long
+// and narrow, so nose-to-tail contact happens much sooner than side-to-side —
+// you can race genuinely side by side without phantom collisions
+const CONTACT_HALF_LEN = 3.0;
+const CONTACT_HALF_WID = 1.9;
 
 export interface GameConfig {
   renderer: THREE.WebGLRenderer;
@@ -73,6 +76,8 @@ export class Game {
   private acc = 0;
   private started = false;
   private finishedNotified = false;
+  /** wall-clock deadline after the first finisher (online races) */
+  private finishDeadline: number | null = null;
   private disposed = false;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private wheelSpin = 0;
@@ -202,6 +207,11 @@ export class Game {
     this.cfg.hud.centerText(text, color);
   }
 
+  /** someone crossed the line first — show the time left for everyone else */
+  startFinishCountdown(ms: number) {
+    this.finishDeadline = performance.now() + ms;
+  }
+
   private resetCar() {
     if (!this.started || this.tracker.finished) return;
     const pose = this.track.resetPose(this.sim.x, this.sim.z, this.sim.trackIdx);
@@ -228,25 +238,51 @@ export class Game {
     const input = this.input.read(STEP);
     this.sim.step(STEP, input);
 
-    // soft "ghost" collisions: separate positions gently and cancel only the
-    // closing velocity (a flat per-step push would slingshot the car during
-    // sustained contact). Finished cars are ghosts — they can't block anyone.
+    // car-to-car contact: elliptical envelope in our frame, with the
+    // response split by WHERE the contact is — frontal hits stop the car,
+    // side swipes deflect it laterally while keeping racing speed, rear
+    // taps shove it forward. Finished cars are ghosts.
     if (!this.tracker.finished) {
+      const fx = Math.sin(this.sim.heading);
+      const fz = Math.cos(this.sim.heading);
+      const lx = fz;
+      const lz = -fx;
       for (const rc of this.remotes.values()) {
         if (!rc.visual.group.visible || rc.fin) continue;
         const dx = this.sim.x - rc.x;
         const dz = this.sim.z - rc.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 > 0.01 && d2 < CAR_CONTACT_DIST * CAR_CONTACT_DIST) {
-          const d = Math.sqrt(d2);
-          const nx = dx / d;
-          const nz = dz / d;
-          this.sim.nudge(nx * (CAR_CONTACT_DIST - d) * 0.3, nz * (CAR_CONTACT_DIST - d) * 0.3);
-          const vw = this.sim.velWorld();
-          const closing = -(vw.x * nx + vw.z * nz);
-          if (closing > 0) {
-            // remove the closing component plus a small bounce
-            this.sim.applyImpulse(nx * closing * 1.25, nz * closing * 1.25);
+        // delta in our frame: along the nose vs across the body
+        const dF = dx * fx + dz * fz;
+        const dL = dx * lx + dz * lz;
+        const q2 =
+          (dF / CONTACT_HALF_LEN) ** 2 + (dL / CONTACT_HALF_WID) ** 2;
+        if (q2 >= 1 || q2 < 1e-4) continue;
+        const q = Math.sqrt(q2);
+
+        // contact normal = ellipse gradient, mapped back to world space
+        let nF = dF / (CONTACT_HALF_LEN * CONTACT_HALF_LEN);
+        let nL = dL / (CONTACT_HALF_WID * CONTACT_HALF_WID);
+        const nLen = Math.hypot(nF, nL) || 1;
+        nF /= nLen;
+        nL /= nLen;
+        const nx = fx * nF + lx * nL;
+        const nz = fz * nF + lz * nL;
+
+        // gentle positional separation
+        const pen = (1 - q) * 1.1;
+        this.sim.nudge(nx * pen * 0.45, nz * pen * 0.45);
+
+        const vw = this.sim.velWorld();
+        const closing = -(vw.x * nx + vw.z * nz);
+        if (closing > 0) {
+          // frontal share of the contact decides how hard it bites:
+          // head-on ~1.35x (firm stop + bounce), pure side ~0.55x (deflect)
+          const frontal = Math.abs(nF);
+          const k = 0.55 + 0.8 * frontal;
+          this.sim.applyImpulse(nx * closing * k, nz * closing * k);
+          // head-on contact also scrubs forward speed (crumpling, not rubbing)
+          if (frontal > 0.6 && closing > 3) {
+            this.sim.vF *= 1 - Math.min(0.25, closing * 0.012) * frontal;
           }
         }
       }
@@ -324,6 +360,11 @@ export class Game {
     }
 
     const now = performance.now();
+    this.cfg.hud.setFinishCountdown(
+      this.finishDeadline !== null
+        ? Math.ceil((this.finishDeadline - now) / 1000)
+        : null,
+    );
     const hudCars: HudCar[] = [
       { x: this.sim.x, z: this.sim.z, color: this.cfg.self.color, self: true },
     ];
@@ -367,6 +408,7 @@ export class Game {
     this.world.dispose();
     this.cfg.hud.setVisible(false);
     this.cfg.hud.centerText("");
+    this.cfg.hud.setFinishCountdown(null);
     // drop the devtools handle so the disposed scene can be collected
     const w = window as unknown as Record<string, unknown>;
     if ((w.__game as { sim?: unknown } | undefined)?.sim === this.sim) {
