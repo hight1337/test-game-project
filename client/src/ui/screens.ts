@@ -77,11 +77,12 @@ export class Screens {
         <div class="divider"><span>RACE WITH FRIENDS</span></div>
         <div class="field"><label>SERVER</label><input id="m-server" /></div>
         <button id="m-create">CREATE RACE</button>
-        <div class="row" style="align-items:flex-end">
-          <div class="field" style="margin-bottom:0"><label>ROOM CODE</label>
-            <input id="m-code" maxlength="4" placeholder="ABCD"
-              style="text-transform:uppercase;letter-spacing:6px;text-align:center" /></div>
-          <button id="m-join" class="secondary" style="margin-top:0">JOIN</button>
+        <div class="join-box">
+          <label>GOT A CODE FROM A FRIEND? ENTER IT HERE</label>
+          <div class="join-row">
+            <input id="m-code" maxlength="4" placeholder="ABCD" autocomplete="off" />
+            <button id="m-join">JOIN RACE</button>
+          </div>
         </div>
       </div></div>`;
 
@@ -109,7 +110,7 @@ export class Screens {
       const { name, server } = grab();
       h.onCreate(name, server);
     };
-    $("m-join").onclick = () => {
+    const join = () => {
       const { name, server } = grab();
       const code = codeEl.value.trim().toUpperCase();
       if (code.length !== 4) {
@@ -118,6 +119,10 @@ export class Screens {
       }
       h.onJoin(name, server, code);
     };
+    $("m-join").onclick = join;
+    codeEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") join();
+    });
   }
 
   // ---- lobby ---------------------------------------------------------------

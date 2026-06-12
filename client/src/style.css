@@ -304,6 +304,61 @@ button.secondary {
   color: var(--text);
 }
 
+/* =========================================================== JOIN BOX ==== */
+
+.join-box {
+  margin-top: 18px;
+  padding: 14px 16px 16px;
+  border: 1px dashed rgba(225, 6, 0, 0.45);
+  border-radius: 4px;
+  background: rgba(225, 6, 0, 0.05);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.join-box:focus-within {
+  border-style: solid;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(225, 6, 0, 0.14);
+}
+
+.join-box > label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  color: var(--red-hot);
+  margin-bottom: 10px;
+}
+
+.join-row {
+  display: flex;
+  gap: 10px;
+}
+
+.join-row input {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 12px;
+  text-indent: 12px;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 8px 0;
+  border-left: 1px solid var(--line);
+}
+
+.join-row input::placeholder {
+  letter-spacing: 12px;
+  color: #44444f;
+}
+
+.join-row button {
+  flex: 0 0 42%;
+  margin-top: 0;
+}
+
 /* =========================================================== DIVIDERS ==== */
 
 .divider {
