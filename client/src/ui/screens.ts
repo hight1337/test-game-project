@@ -131,8 +131,8 @@ export class Screens {
           <h1>RACE <em>LOBBY</em></h1>
           <div class="sub" id="l-sub"></div>
         </div>
-        <div class="room-code" id="l-code"></div>
-        <div class="room-code-hint">share this code with your friends</div>
+        <div class="room-code" id="l-code" title="Click to copy"></div>
+        <div class="room-code-hint" id="l-code-hint">click the code to copy it</div>
         <ul class="player-list" id="l-players"></ul>
         <div class="row" id="l-settings">
           <div class="field"><label>CIRCUIT</label>
@@ -149,6 +149,20 @@ export class Screens {
       </div></div>`;
 
     const $ = (id: string) => document.getElementById(id)!;
+    $("l-code").onclick = async () => {
+      const code = $("l-code").textContent ?? "";
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const hint = $("l-code-hint");
+        hint.textContent = "copied — send it to your friends";
+        setTimeout(() => {
+          hint.textContent = "click the code to copy it";
+        }, 1800);
+      } catch {
+        this.toast("Copy failed — select it manually");
+      }
+    };
     ($("l-track") as HTMLSelectElement).onchange = (e) =>
       h.onTrack((e.target as HTMLSelectElement).value);
     ($("l-laps") as HTMLSelectElement).onchange = (e) =>

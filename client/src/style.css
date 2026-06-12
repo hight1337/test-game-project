@@ -363,6 +363,19 @@ button.secondary {
   text-shadow: 0 0 22px rgba(225, 6, 0, 0.55);
 }
 
+.room-code {
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.room-code:hover {
+  filter: brightness(1.3);
+}
+
+.room-code:active {
+  transform: scale(0.98);
+}
+
 .room-code::before,
 .room-code::after {
   content: "";
