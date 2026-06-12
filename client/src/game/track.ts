@@ -9,11 +9,19 @@ export const KERB_W = 1.4;
 const SPACING = 3;
 const N_GATES = 10;
 /**
- * Real F1 widths feel narrow with upscaled cars — widen the drivable
- * surface so 2–3 cars fit side by side through corners. Everything (mesh,
- * physics, walls, grid) derives from the scaled samples.
+ * Cars render at 1.45x real size (see carMesh CAR_VISUAL_SCALE), so widths
+ * scale by the same factor — the track-to-car proportion then matches the
+ * real world: ~3 cars abreast on normal sections, tight where the real
+ * circuit is tight. Everything (mesh, physics, walls, grid) derives from
+ * the scaled samples.
  */
-const WIDTH_SCALE = 1.35;
+const WIDTH_SCALE = 1.45;
+/**
+ * Real laps (5-7 km) take too long for casual racing — compress the
+ * centerline to 70%. Corners tighten proportionally; widths stay at the
+ * scaled real values above, so the track also feels a touch wider.
+ */
+const LENGTH_SCALE = 0.7;
 
 export interface TrackSample {
   x: number;
@@ -77,8 +85,8 @@ export class Track {
       for (let s = 0; s < steps; s++) {
         const t = s / steps;
         pts.push({
-          x: catmullRom(p0[0], p1[0], p2[0], p3[0], t),
-          z: catmullRom(p0[1], p1[1], p2[1], p3[1], t),
+          x: catmullRom(p0[0], p1[0], p2[0], p3[0], t) * LENGTH_SCALE,
+          z: catmullRom(p0[1], p1[1], p2[1], p3[1], t) * LENGTH_SCALE,
           wn: (p1[2] + (p2[2] - p1[2]) * t) * WIDTH_SCALE,
           wp: (p1[3] + (p2[3] - p1[3]) * t) * WIDTH_SCALE,
         });

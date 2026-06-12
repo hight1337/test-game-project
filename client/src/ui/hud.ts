@@ -143,15 +143,18 @@ export class Hud {
       ms < 0.6 ? IDLE_RPM : Math.min(DIAL_MAX, 5 + frac * (SHIFT_RPM - 5));
     const ang = DIAL_START + (rpm / DIAL_MAX) * DIAL_SWEEP;
 
-    // needle
-    ctx.strokeStyle = "#e10600";
+    // needle with a soft glow
+    ctx.shadowColor = "rgba(225,6,0,0.8)";
+    ctx.shadowBlur = 7;
+    ctx.strokeStyle = "#ff2a20";
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(cx - Math.cos(ang) * 8, cy - Math.sin(ang) * 8);
     ctx.lineTo(cx + Math.cos(ang) * (R - 8), cy + Math.sin(ang) * (R - 8));
     ctx.stroke();
-    ctx.fillStyle = "#2a2a36";
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#34343f";
     ctx.beginPath();
     ctx.arc(cx, cy, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -168,13 +171,17 @@ export class Hud {
     ctx.font = "800 21px 'Segoe UI', system-ui, sans-serif";
     ctx.fillText(gear, cx, cy + 38);
 
-    // digital speed below the dial, outside the circle
+    // digital speed in a small pill below the dial
+    ctx.fillStyle = "rgba(12,12,18,0.68)";
+    ctx.beginPath();
+    ctx.roundRect(cx - 46, H - 42, 92, 40, 11);
+    ctx.fill();
     ctx.fillStyle = "#ffffff";
     ctx.font = "italic 800 25px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText(String(Math.round(Math.abs(kmhSigned))), cx, H - 14);
+    ctx.fillText(String(Math.round(Math.abs(kmhSigned))), cx, H - 16);
     ctx.fillStyle = "#9b9ba6";
     ctx.font = "700 9px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("KM/H", cx, H - 4);
+    ctx.fillText("KM/H", cx, H - 5);
   }
 
   private drawMap(cars: HudCar[]) {
@@ -192,7 +199,12 @@ export class Hud {
         Math.PI * 2,
       );
       ctx.fillStyle = car.color;
+      if (car.self) {
+        ctx.shadowColor = "rgba(255,255,255,0.9)";
+        ctx.shadowBlur = 8;
+      }
       ctx.fill();
+      ctx.shadowBlur = 0;
       if (car.self) {
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
@@ -215,10 +227,20 @@ function renderDialFace(
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
-  ctx.fillStyle = "rgba(15,15,22,0.6)";
+  // circular dial plate (the glass card behind comes from CSS)
+  const plate = ctx.createRadialGradient(cx, cy, 6, cx, cy, R + 20);
+  plate.addColorStop(0, "rgba(40,40,56,0.9)");
+  plate.addColorStop(0.85, "rgba(16,16,24,0.75)");
+  plate.addColorStop(1, "rgba(16,16,24,0)");
+  ctx.fillStyle = plate;
   ctx.beginPath();
-  ctx.roundRect(0, 0, W, H, 10);
+  ctx.arc(cx, cy, R + 20, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 7, 0, Math.PI * 2);
+  ctx.stroke();
 
   // arc track + redline zone
   ctx.lineWidth = 4;

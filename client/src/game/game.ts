@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
   INTERP_DELAY_MS,
   TRACK_MAP,
@@ -20,8 +21,20 @@ import { buildTrackVisual, TrackVisual } from "./trackMesh";
 
 const STEP = 1 / 60;
 const WHEEL_R = 0.34;
+
+// one PMREM environment for the whole session — gives PBR materials
+// (car paint, rims) something to reflect
+let envTexture: THREE.Texture | null = null;
+function getEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
+  if (!envTexture) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+  }
+  return envTexture;
+}
 // car-vs-car soft collision radius, matches the upscaled visuals
-const CAR_CONTACT_DIST = 3.4;
+const CAR_CONTACT_DIST = 3.1;
 
 export interface GameConfig {
   renderer: THREE.WebGLRenderer;
@@ -71,6 +84,8 @@ export class Game {
   constructor(private cfg: GameConfig) {
     this.track = new Track(TRACK_MAP[cfg.trackId]);
     this.world = buildWorld(this.track);
+    this.world.scene.environment = getEnvironment(cfg.renderer);
+    this.world.scene.environmentIntensity = 0.45;
     this.trackVis = buildTrackVisual(this.track);
     this.world.scene.add(this.trackVis.group);
 

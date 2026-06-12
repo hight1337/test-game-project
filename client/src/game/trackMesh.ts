@@ -167,6 +167,9 @@ function buildKerbs(track: Track, disposables: { dispose(): void }[]) {
     }
   }
 
+  // raised profile: road edge -> crest at mid-kerb -> back down outside,
+  // so kerbs read as 3D rumble strips instead of painted stripes
+  const V = 3; // verts per sample
   for (const side of [1, -1]) {
     let run: number[] = [];
     const flush = () => {
@@ -179,17 +182,20 @@ function buildKerbs(track: Track, disposables: { dispose(): void }[]) {
         const i = run[r];
         const p = s[i];
         const w = side === 1 ? p.wn : p.wp;
-        const inX = p.x + p.nx * side * w;
-        const inZ = p.z + p.nz * side * w;
-        pos.push(
-          inX, ROAD_Y + 0.012, inZ,
-          inX + p.nx * side * KERB_W, ROAD_Y + 0.012, inZ + p.nz * side * KERB_W,
-        );
+        const ix = p.x + p.nx * side * w;
+        const iz = p.z + p.nz * side * w;
+        const mx = ix + p.nx * side * KERB_W * 0.45;
+        const mz = iz + p.nz * side * KERB_W * 0.45;
+        const ox = ix + p.nx * side * KERB_W;
+        const oz = iz + p.nz * side * KERB_W;
+        pos.push(ix, ROAD_Y + 0.012, iz, mx, ROAD_Y + 0.085, mz, ox, ROAD_Y + 0.015, oz);
         const c = Math.floor(i / 2) % 2 === 0 ? red : white;
-        col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+        for (let v = 0; v < V; v++) col.push(c.r, c.g, c.b);
         if (r > 0) {
-          const a = base + (r - 1) * 2;
-          idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3);
+          const a = base + (r - 1) * V;
+          for (const k of [0, 1]) {
+            idx.push(a + k, a + k + 1, a + k + V, a + k + V, a + k + 1, a + k + V + 1);
+          }
         }
       }
       run = [];

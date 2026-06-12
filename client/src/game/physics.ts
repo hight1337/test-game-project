@@ -24,16 +24,19 @@ const REVERSE_SPEED = 14;
 const REVERSE_ACCEL = 9;
 const WHEELBASE = 3.1;
 const MAX_STEER = 0.45; // rad, low speed
-const STEER_FALLOFF = 20; // m/s; higher = livelier steering at speed
+const STEER_FALLOFF = 24; // m/s; higher = livelier steering at speed
+const ENGINE_BRAKE = 2.2; // m/s^2 off-throttle decel — natural corner-entry control
 // grip model: mechanical grip + aero downforce that grows with speed, like a
 // real F1 car — slow corners demand braking, fast sweepers go nearly flat
 // (exported for the racing-line assist, which predicts corner speeds)
-export const GRIP_BASE = 17.5; // mechanical grip, m/s^2 (~1.8g)
-export const DOWNFORCE = 0.0035; // aero grip gain per (m/s)^2
+// calibrated against real F1 lateral performance: ~1.9g mechanical,
+// ~3.5g at 150 km/h, capped near 5g at speed — F1s turn on rails
+export const GRIP_BASE = 18.5; // mechanical grip, m/s^2 (~1.9g)
+export const DOWNFORCE = 0.009; // aero grip gain per (m/s)^2
 export const DOWNFORCE_MAX = 30; // aero grip cap, m/s^2
 const SLIDE_DRAG = 0.4; // speed scrub per m/s of lateral sliding, 1/s
-const GRIP = 8.0; // lateral slip damping on tarmac, 1/s
-const GRIP_RUNOFF = 5.5; // paved runoff: dusty, a bit less grip
+const GRIP = 9.0; // lateral slip damping on tarmac, 1/s
+const GRIP_RUNOFF = 6.0; // paved runoff: dusty, a bit less grip
 const DRAG = 0.00105; // quadratic aero drag — sets top speed ~324 km/h
 const ROLL = 0.5; // rolling resistance, m/s^2
 const RUNOFF_DRAG = 0.9; // extra decel on the runoff, m/s^2
@@ -43,8 +46,8 @@ const WALL_GRIND = 6.5; // m/s^2 lost while scraping along the barrier
 // half-extents of the upscaled car visuals (see carMesh CAR_VISUAL_SCALE);
 // the wall clearance projects these onto the wall normal so neither the
 // nose nor a flank ever clips through the barrier mesh
-const CAR_HALF_W = 1.35;
-const CAR_HALF_L = 3.3;
+const CAR_HALF_W = 1.25;
+const CAR_HALF_L = 3.1;
 
 /**
  * Arcade car simulation on a flat track. Velocity is decomposed into a
@@ -146,6 +149,11 @@ export class CarSim {
     }
     const drag = DRAG * this.vF * Math.abs(this.vF) + Math.sign(this.vF) * ROLL;
     this.vF -= drag * dt;
+    // engine braking: lifting off slows the car noticeably, so casual
+    // drivers can manage corner entry without always stabbing the brakes
+    if (input.throttle === 0 && Math.abs(this.vF) > 1) {
+      this.vF -= Math.sign(this.vF) * ENGINE_BRAKE * dt;
+    }
     if (this.onRunoff) {
       this.vF -= Math.sign(this.vF) * RUNOFF_DRAG * dt;
     }
@@ -165,11 +173,13 @@ export class CarSim {
     // (the cap above) AND slides outward — carry too much speed into a
     // corner and you go to the wall instead of magically slowing down
     const excess = Math.abs(wanted) - yawCap;
-    const slideFactor = excess > 0 ? 1 + Math.min(excess / yawCap, 1.8) : 1;
+    const slideFactor = excess > 0 ? 1 + Math.min(excess / yawCap, 1.8) * 0.85 : 1;
     this.vL += -yawRate * Math.abs(this.vF) * 0.16 * slideFactor * dt;
 
-    // sliding tires have less grip than rolling ones -> slides are progressive
-    const gripEff = grip / (1 + Math.abs(this.vL) * 0.18);
+    // sliding tires have less grip than rolling ones -> slides are progressive;
+    // with the wheel centered the car self-straightens (stability assist)
+    let gripEff = grip / (1 + Math.abs(this.vL) * 0.18);
+    if (Math.abs(input.steer) < 0.05) gripEff *= 1.35;
     this.vL *= Math.exp(-gripEff * dt);
 
     // the only speed penalty is genuine tire scrub while actually sliding

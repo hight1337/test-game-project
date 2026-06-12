@@ -11,6 +11,8 @@ export class Input {
   private steer = 0;
   private handlers = new Map<string, () => void>();
   private padResetHeld = false;
+  /** observed resting value per trigger — drifting triggers self-calibrate */
+  private triggerRest: [number, number] = [1, 1];
   enabled = true;
 
   private onDown = (e: KeyboardEvent) => {
@@ -65,17 +67,22 @@ export class Input {
     const pad = this.gamepad();
     if (pad) {
       const stick = pad.axes[0] ?? 0;
-      // triggers can rest slightly above zero (worn springs, drift) — without
-      // a deadzone that reads as permanent throttle
-      const trigger = (b: GamepadButton | undefined) => {
-        const v = b?.value ?? 0;
-        return v > 0.06 ? v : 0;
+      // triggers can rest well above zero (worn springs, drift). Track the
+      // lowest value ever seen per trigger as its true zero and rescale —
+      // the calibration can only move down, so it self-heals even if the
+      // trigger was held when the pad connected.
+      const trigger = (b: GamepadButton | undefined, slot: 0 | 1) => {
+        const raw = b?.value ?? 0;
+        this.triggerRest[slot] = Math.min(this.triggerRest[slot], raw);
+        const rest = this.triggerRest[slot];
+        const v = (raw - rest - 0.05) / Math.max(0.2, 1 - rest);
+        return v > 0 ? Math.min(1, v) : 0;
       };
       if (this.enabled) {
         // stick left is -1; our steer convention is +1 = left
         if (Math.abs(stick) > STICK_DEADZONE) steer = -stick;
-        throttle = Math.max(throttle, trigger(pad.buttons[7]));
-        brake = Math.max(brake, trigger(pad.buttons[6]));
+        throttle = Math.max(throttle, trigger(pad.buttons[7], 0));
+        brake = Math.max(brake, trigger(pad.buttons[6], 1));
       }
       // Y / triangle = reset, edge-triggered
       const resetDown = pad.buttons[3]?.pressed ?? false;
