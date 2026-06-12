@@ -11,8 +11,8 @@ import { formatTime } from "../game/utils";
 
 export interface MenuHandlers {
   onPractice: (trackId: string, laps: number) => void;
-  onCreate: (name: string, server: string) => void;
-  onJoin: (name: string, server: string, code: string) => void;
+  onCreate: (name: string) => void;
+  onJoin: (name: string, code: string) => void;
 }
 
 export interface LobbyHandlers {
@@ -23,7 +23,6 @@ export interface LobbyHandlers {
 }
 
 const LS_NAME = "f1web.name";
-const LS_SERVER = "f1web.server";
 
 export class Screens {
   private root = document.getElementById("screens")!;
@@ -50,14 +49,6 @@ export class Screens {
 
   showMenu(h: MenuHandlers) {
     this.current = "menu";
-    // build-time override > same-origin (production: the server also hosts
-    // this page) > vite dev server convention (game server on :8090)
-    const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
-    const defaultServer =
-      (import.meta.env.VITE_SERVER_URL as string | undefined) ||
-      (location.port === "5173"
-        ? `ws://${location.hostname}:8090`
-        : `${wsProto}//${location.host}`);
     this.root.innerHTML = `
       <div class="screen"><div class="panel">
         <div class="brand">
@@ -75,7 +66,6 @@ export class Screens {
         </div>
         <button id="m-practice" class="secondary">PRACTICE SOLO</button>
         <div class="divider"><span>RACE WITH FRIENDS</span></div>
-        <div class="field"><label>SERVER</label><input id="m-server" /></div>
         <button id="m-create">CREATE RACE</button>
         <div class="join-box">
           <label>GOT A CODE FROM A FRIEND? ENTER IT HERE</label>
@@ -88,17 +78,13 @@ export class Screens {
 
     const $ = (id: string) => document.getElementById(id)!;
     const nameEl = $("m-name") as HTMLInputElement;
-    const serverEl = $("m-server") as HTMLInputElement;
     const codeEl = $("m-code") as HTMLInputElement;
     nameEl.value = localStorage.getItem(LS_NAME) ?? "";
-    serverEl.value = localStorage.getItem(LS_SERVER) ?? defaultServer;
 
     const grab = () => {
       const name = nameEl.value.trim() || "Driver";
-      const server = serverEl.value.trim() || defaultServer;
       localStorage.setItem(LS_NAME, name);
-      localStorage.setItem(LS_SERVER, server);
-      return { name, server };
+      return name;
     };
 
     $("m-practice").onclick = () =>
@@ -106,18 +92,14 @@ export class Screens {
         ($("m-track") as HTMLSelectElement).value,
         Number(($("m-laps") as HTMLSelectElement).value),
       );
-    $("m-create").onclick = () => {
-      const { name, server } = grab();
-      h.onCreate(name, server);
-    };
+    $("m-create").onclick = () => h.onCreate(grab());
     const join = () => {
-      const { name, server } = grab();
       const code = codeEl.value.trim().toUpperCase();
       if (code.length !== 4) {
         this.toast("Enter the 4-letter room code");
         return;
       }
-      h.onJoin(name, server, code);
+      h.onJoin(grab(), code);
     };
     $("m-join").onclick = join;
     codeEl.addEventListener("keydown", (e) => {

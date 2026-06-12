@@ -65,7 +65,15 @@ export type ClientMsg =
 export type ServerMsg =
   | { t: "room"; selfId: string; room: RoomInfo }
   | { t: "lobby"; room: RoomInfo }
-  | { t: "countdown"; room: RoomInfo; gridIds: string[]; ms: number }
+  | {
+      t: "countdown";
+      room: RoomInfo;
+      gridIds: string[];
+      /** prep window before the lights, then the lights window; the random
+       *  lights-out hold after that is server-side — wait for "go" */
+      prepMs: number;
+      lightsMs: number;
+    }
   | { t: "go" }
   | { t: "states"; now: number; list: ({ id: string } & NetCarState)[] }
   | { t: "playerLeft"; id: string }

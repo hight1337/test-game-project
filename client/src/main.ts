@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import {
   CAR_COLORS,
+  LIGHTS_MS,
   NET_SEND_HZ,
+  PREP_MS,
   type ResultEntry,
   type RoomInfo,
 } from "@f1web/shared";
@@ -26,15 +28,10 @@ let net: NetClient | null = null;
 let game: Game | null = null;
 let room: RoomInfo | null = null;
 let selfId = "";
-let countdownAnim: ReturnType<typeof setInterval> | null = null;
 
 // ---------------------------------------------------------------------------
 
 function endGame() {
-  if (countdownAnim) {
-    clearInterval(countdownAnim);
-    countdownAnim = null;
-  }
   game?.dispose();
   game = null;
 }
@@ -49,15 +46,28 @@ function leaveOnline() {
   selfId = "";
 }
 
+/**
+ * The game server is not user-facing configuration: same origin in
+ * production (it serves this page), the dev server on :8090 under Vite,
+ * and a `?server=wss://...` query override for development only.
+ */
+function serverUrl(): string {
+  const override = new URLSearchParams(location.search).get("server");
+  if (override) return override;
+  if (location.port === "5173") return `ws://${location.hostname}:8090`;
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${location.host}`;
+}
+
 function showMenu() {
   endGame();
   leaveOnline();
   screens.showMenu({
     onPractice: startPractice,
-    onCreate: (name, server) =>
-      void connectThen(server, (n) => n.send({ t: "create", name })),
-    onJoin: (name, server, code) =>
-      void connectThen(server, (n) => n.send({ t: "join", code, name })),
+    onCreate: (name) =>
+      void connectThen(serverUrl(), (n) => n.send({ t: "create", name })),
+    onJoin: (name, code) =>
+      void connectThen(serverUrl(), (n) => n.send({ t: "join", code, name })),
   });
 }
 
@@ -89,7 +99,7 @@ function startPractice(trackId: string, laps: number) {
       }, 1800);
     },
   });
-  game.startPracticeCountdown();
+  game.startCountdown(PREP_MS, LIGHTS_MS, true);
 }
 
 // ---- multiplayer -----------------------------------------------------------
@@ -155,20 +165,12 @@ function wireNet(n: NetClient) {
     for (const p of m.room.players) {
       if (p.id !== selfId) game.addRemote(p);
     }
-    // drive the start lights over the countdown window; GO comes from the server
-    const t0 = performance.now();
-    countdownAnim = setInterval(() => {
-      game?.setCountdownProgress((performance.now() - t0) / m.ms);
-    }, 110);
+    // prep count + lights render locally; lights-out comes from the server
+    // after its random hold
+    game.startCountdown(m.prepMs, m.lightsMs, false);
   });
 
-  n.on("go", () => {
-    if (countdownAnim) {
-      clearInterval(countdownAnim);
-      countdownAnim = null;
-    }
-    game?.go();
-  });
+  n.on("go", () => game?.go());
 
   n.on("states", (m) => {
     if (!game) return;

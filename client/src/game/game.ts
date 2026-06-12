@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
+  GO_HOLD_MAX_MS,
+  GO_HOLD_MIN_MS,
   INTERP_DELAY_MS,
   TRACK_MAP,
   type NetCarState,
@@ -168,23 +170,50 @@ export class Game {
 
   // ---- race control --------------------------------------------------------
 
-  /** practice mode: run the light sequence locally, then GO */
-  startPracticeCountdown() {
-    for (let i = 1; i <= 5; i++) {
-      this.timers.push(
-        setTimeout(() => this.trackVis.setStartLights(i, false), i * 580),
-      );
+  private countdownT0: number | null = null;
+  private prepMs = 0;
+  private lightsMs = 0;
+  /** practice schedules its own randomized lights-out; online waits for "go" */
+  private localGoAt: number | null = null;
+
+  /**
+   * Start sequence: a prep window (big on-screen count so everyone settles
+   * on the grid), then the 5 red lights, then — after a random hold nobody
+   * can anticipate — lights out.
+   */
+  startCountdown(prepMs: number, lightsMs: number, localGo: boolean) {
+    this.countdownT0 = performance.now();
+    this.prepMs = prepMs;
+    this.lightsMs = lightsMs;
+    if (localGo) {
+      const hold =
+        GO_HOLD_MIN_MS + Math.random() * (GO_HOLD_MAX_MS - GO_HOLD_MIN_MS);
+      this.localGoAt = this.countdownT0 + prepMs + lightsMs + hold;
     }
-    this.timers.push(setTimeout(() => this.go(), 5 * 580 + 650));
   }
 
-  /** online mode: the server drives the lights via countdown progress 0..1 */
-  setCountdownProgress(fraction: number) {
-    this.trackVis.setStartLights(Math.min(5, Math.ceil(fraction * 5)), false);
+  private updateCountdown(t: number) {
+    if (this.countdownT0 === null || this.started) return;
+    const elapsed = t - this.countdownT0;
+    if (elapsed < this.prepMs) {
+      const secs = Math.ceil((this.prepMs - elapsed) / 1000);
+      this.cfg.hud.centerText(String(secs), secs <= 3 ? "#ff2a1c" : "#ffffff");
+      this.trackVis.setStartLights(0, false);
+    } else {
+      this.cfg.hud.centerText("");
+      const lit = Math.min(
+        5,
+        Math.ceil(((elapsed - this.prepMs) / this.lightsMs) * 5),
+      );
+      this.trackVis.setStartLights(lit, false);
+    }
+    if (this.localGoAt !== null && t >= this.localGoAt) this.go();
   }
 
   go() {
     if (this.started || this.disposed) return;
+    this.countdownT0 = null;
+    this.localGoAt = null;
     this.started = true;
     this.input.enabled = true;
     this.trackVis.setStartLights(5, true);
@@ -348,6 +377,8 @@ export class Game {
   }
 
   private render(dt: number, t: number) {
+    this.updateCountdown(t);
+
     // local car visuals
     this.selfVis.group.position.set(this.sim.x, 0, this.sim.z);
     this.selfVis.group.rotation.y = this.sim.heading;

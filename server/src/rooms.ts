@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { WebSocket } from "ws";
 import {
   CAR_COLORS,
-  COUNTDOWN_MS,
   DEFAULT_LAPS,
+  GO_HOLD_MAX_MS,
+  GO_HOLD_MIN_MS,
+  LIGHTS_MS,
+  PREP_MS,
   DEFAULT_TRACK_ID,
   FINISH_TIMEOUT_MS,
   MAX_LAPS,
@@ -241,7 +244,8 @@ class Room {
       t: "countdown",
       room: this.info(),
       gridIds,
-      ms: COUNTDOWN_MS,
+      prepMs: PREP_MS,
+      lightsMs: LIGHTS_MS,
     });
 
     this.broadcastTimer = setInterval(() => {
@@ -253,10 +257,13 @@ class Room {
       }
     }, 1000 / NET_BROADCAST_HZ);
 
+    // lights out after a RANDOM hold — launches can't be timed perfectly
+    const hold =
+      GO_HOLD_MIN_MS + Math.random() * (GO_HOLD_MAX_MS - GO_HOLD_MIN_MS);
     this.countdownTimer = setTimeout(() => {
       this.phase = "racing";
       this.broadcast({ t: "go" });
-    }, COUNTDOWN_MS);
+    }, PREP_MS + LIGHTS_MS + hold);
 
     // a race can't hang the room forever (everyone AFK / parked)
     this.raceWatchdog = setTimeout(() => this.endRace(), MAX_RACE_MS);

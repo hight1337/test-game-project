@@ -11,7 +11,13 @@ export const NET_BROADCAST_HZ = 20;
 /** Render delay for remote cars (interpolation buffer). */
 export const INTERP_DELAY_MS = 120;
 
-export const COUNTDOWN_MS = 3200;
+/** grid-prep window before the start lights begin */
+export const PREP_MS = 10_000;
+/** the 5 red lights come on across this window */
+export const LIGHTS_MS = 4000;
+/** random hold after all 5 lights are lit, before lights-out (F1-style) */
+export const GO_HOLD_MIN_MS = 600;
+export const GO_HOLD_MAX_MS = 3000;
 export const DEFAULT_LAPS = 3;
 export const MIN_LAPS = 1;
 export const MAX_LAPS = 10;
