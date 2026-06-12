@@ -205,3 +205,14 @@ setInterval(() => {
 }, 1000 / NET_SEND_HZ);
 
 showMenu();
+
+// invite links: ...?join=CODE drops the visitor straight into the lobby
+const inviteCode = new URLSearchParams(location.search)
+  .get("join")
+  ?.toUpperCase();
+if (inviteCode && /^[A-Z]{4}$/.test(inviteCode)) {
+  const srv = serverUrl(); // capture before stripping the query
+  history.replaceState(null, "", location.pathname);
+  const name = localStorage.getItem("f1web.name")?.trim() || "Driver";
+  void connectThen(srv, (n) => n.send({ t: "join", code: inviteCode, name }));
+}

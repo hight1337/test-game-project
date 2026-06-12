@@ -118,8 +118,8 @@ export class Screens {
           <h1>RACE <em>LOBBY</em></h1>
           <div class="sub" id="l-sub"></div>
         </div>
-        <div class="room-code" id="l-code" title="Click to copy"></div>
-        <div class="room-code-hint" id="l-code-hint">click the code to copy it</div>
+        <div class="room-code" id="l-code" title="Click to copy the invite link"></div>
+        <div class="room-code-hint" id="l-code-hint">click to copy an invite link — friends join in one click</div>
         <ul class="player-list" id="l-players"></ul>
         <div class="row" id="l-settings">
           <div class="field"><label>CIRCUIT</label>
@@ -139,15 +139,17 @@ export class Screens {
     $("l-code").onclick = async () => {
       const code = $("l-code").textContent ?? "";
       if (!code) return;
+      const invite = `${location.origin}${location.pathname}?join=${code}`;
       try {
-        await navigator.clipboard.writeText(code);
+        await navigator.clipboard.writeText(invite);
         const hint = $("l-code-hint");
-        hint.textContent = "copied — send it to your friends";
+        hint.textContent = "invite link copied — send it to your friends";
         setTimeout(() => {
-          hint.textContent = "click the code to copy it";
-        }, 1800);
+          hint.textContent =
+            "click to copy an invite link — friends join in one click";
+        }, 2200);
       } catch {
-        this.toast("Copy failed — select it manually");
+        this.toast("Copy failed — share the code manually");
       }
     };
     ($("l-track") as HTMLSelectElement).onchange = (e) =>
