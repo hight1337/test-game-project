@@ -59,8 +59,11 @@ export class Screens {
         : `${wsProto}//${location.host}`);
     this.root.innerHTML = `
       <div class="screen"><div class="panel">
-        <h1>F1 <em>WEB RACER</em></h1>
-        <div class="sub">3D multiplayer racing on real circuits — in your browser</div>
+        <div class="brand">
+          <span class="kicker">LIGHTS OUT</span>
+          <h1>F1 <em>WEB RACER</em></h1>
+          <div class="sub">Real circuits &middot; up to 8 drivers &middot; in your browser</div>
+        </div>
         <div class="field"><label>DRIVER NAME</label>
           <input id="m-name" maxlength="14" placeholder="Your name" /></div>
         <div class="row">
@@ -122,8 +125,11 @@ export class Screens {
     this.current = "lobby";
     this.root.innerHTML = `
       <div class="screen"><div class="panel">
-        <h1>RACE <em>LOBBY</em></h1>
-        <div class="sub" id="l-sub"></div>
+        <div class="brand">
+          <span class="kicker">PIT WALL</span>
+          <h1>RACE <em>LOBBY</em></h1>
+          <div class="sub" id="l-sub"></div>
+        </div>
         <div class="room-code" id="l-code"></div>
         <div class="room-code-hint">share this code with your friends</div>
         <ul class="player-list" id="l-players"></ul>
@@ -161,16 +167,28 @@ export class Screens {
       : "waiting for the host to start the race";
 
     const list = $("l-players")!;
-    list.innerHTML = room.players
+    const filled = room.players
       .map(
-        (p) => `
+        (p, i) => `
         <li>
+          <span class="player-slot-num">P${i + 1}</span>
           <span class="player-dot" style="background:${p.color}"></span>
-          <span>${escapeHtml(p.name)}${p.id === selfId ? " (you)" : ""}</span>
+          <span class="player-name">${escapeHtml(p.name)}${p.id === selfId ? " (you)" : ""}</span>
           ${p.id === room.hostId ? '<span class="player-host">HOST</span>' : ""}
         </li>`,
       )
       .join("");
+    // pad with ghost slots (at least a 6-slot grid, up to the 8-player cap)
+    const totalSlots = Math.min(8, Math.max(6, room.players.length + 1));
+    const empties = Array.from(
+      { length: totalSlots - room.players.length },
+      (_, i) => `
+        <li class="empty">
+          <span class="player-slot-num">P${room.players.length + i + 1}</span>
+          <span>WAITING FOR DRIVER</span>
+        </li>`,
+    ).join("");
+    list.innerHTML = filled + empties;
 
     // only the host gets the settings controls; everyone else sees a summary
     $("l-settings")!.classList.toggle("hidden", !isHost);
@@ -198,26 +216,40 @@ export class Screens {
     onClose: () => void,
   ) {
     this.current = "results";
+    const fastest = results.reduce<number | null>(
+      (best, r) =>
+        r.bestLapMs !== null && (best === null || r.bestLapMs < best)
+          ? r.bestLapMs
+          : best,
+      null,
+    );
     const rows = results
-      .map(
-        (r, i) => `
-        <tr class="${r.id === selfId ? "me" : ""}">
-          <td>${r.dnf ? "—" : "P" + (i + 1)}</td>
-          <td><span class="player-dot" style="display:inline-block;background:${r.color}"></span>
-              &nbsp;${escapeHtml(r.name)}</td>
-          <td>${r.dnf ? "DNF" : formatTime(r.totalMs)}</td>
-          <td>${formatTime(r.bestLapMs)}</td>
-        </tr>`,
-      )
+      .map((r, i) => {
+        const podium = !r.dnf && i < 3 ? ` p${i + 1}` : "";
+        const me = r.id === selfId ? " me" : "";
+        const hasFl = fastest !== null && r.bestLapMs === fastest;
+        return `
+        <li class="${podium}${me}">
+          <span class="rank">${r.dnf ? "&mdash;" : "P" + (i + 1)}</span>
+          <span class="player-dot" style="background:${r.color}"></span>
+          <span class="result-driver">${escapeHtml(r.name)}${r.id === selfId ? " (you)" : ""}</span>
+          <span class="result-times">
+            <div class="result-total${r.dnf ? " dnf" : ""}">${r.dnf ? "DNF" : formatTime(r.totalMs)}</div>
+            <div class="result-best${hasFl ? " fastest" : ""}">
+              ${hasFl ? '<span class="fl">FASTEST LAP</span>' : ""}${formatTime(r.bestLapMs)}
+            </div>
+          </span>
+        </li>`;
+      })
       .join("");
     this.root.innerHTML = `
       <div class="screen"><div class="panel">
-        <h1>RACE <em>RESULTS</em></h1>
-        <div class="sub">&nbsp;</div>
-        <table class="results-table">
-          <thead><tr><th>POS</th><th>DRIVER</th><th>TIME</th><th>BEST LAP</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div class="brand">
+          <span class="kicker">CHEQUERED FLAG</span>
+          <h1>RACE <em>RESULTS</em></h1>
+        </div>
+        <div class="results-flag"></div>
+        <ul class="results-list">${rows}</ul>
         <button id="r-close">${closeLabel}</button>
       </div></div>`;
     document.getElementById("r-close")!.onclick = onClose;

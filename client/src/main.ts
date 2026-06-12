@@ -66,7 +66,8 @@ function showMenu() {
 function startPractice(trackId: string, laps: number) {
   endGame();
   screens.hideAll();
-  const self = { id: "self", name: "You", color: CAR_COLORS[0] };
+  const name = localStorage.getItem("f1web.name")?.trim() || "Driver";
+  const self = { id: "self", name, color: CAR_COLORS[0] };
   game = new Game({
     renderer,
     hud,
@@ -77,7 +78,7 @@ function startPractice(trackId: string, laps: number) {
     onExit: () => showMenu(),
     onSelfFinished: (totalMs, bestLapMs) => {
       const results: ResultEntry[] = [
-        { id: "self", name: "You", color: self.color, totalMs, bestLapMs, dnf: false },
+        { id: "self", name, color: self.color, totalMs, bestLapMs, dnf: false },
       ];
       setTimeout(() => {
         endGame();

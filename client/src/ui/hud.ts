@@ -1,4 +1,4 @@
-import { TOP_SPEED } from "../game/physics";
+﻿import { TOP_SPEED } from "../game/physics";
 import { Track } from "../game/track";
 import { formatTime } from "../game/utils";
 
@@ -38,6 +38,13 @@ export class Hud {
   private speedo = document.getElementById("speedo") as HTMLCanvasElement;
   private spCtx = this.speedo.getContext("2d")!;
   private dialFace: HTMLCanvasElement | null = null;
+
+  constructor() {
+    // the dial face caches text; re-render it once webfonts arrive
+    document.fonts?.ready.then(() => {
+      this.dialFace = null;
+    });
+  }
   private elCur = document.getElementById("time-cur")!;
   private elLast = document.getElementById("time-last")!;
   private elBest = document.getElementById("time-best")!;
@@ -168,7 +175,7 @@ export class Hud {
           : String(Math.min(GEARS, Math.floor(ms / gearLen) + 1));
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
-    ctx.font = "800 21px 'Segoe UI', system-ui, sans-serif";
+    ctx.font = "800 21px 'Chakra Petch','Segoe UI',sans-serif";
     ctx.fillText(gear, cx, cy + 38);
 
     // digital speed in a small pill below the dial
@@ -177,10 +184,10 @@ export class Hud {
     ctx.roundRect(cx - 46, H - 42, 92, 40, 11);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
-    ctx.font = "italic 800 25px 'Segoe UI', system-ui, sans-serif";
+    ctx.font = "italic 900 25px 'Titillium Web','Segoe UI',sans-serif";
     ctx.fillText(String(Math.round(Math.abs(kmhSigned))), cx, H - 16);
     ctx.fillStyle = "#9b9ba6";
-    ctx.font = "700 9px 'Segoe UI', system-ui, sans-serif";
+    ctx.font = "700 9px 'Chakra Petch','Segoe UI',sans-serif";
     ctx.fillText("KM/H", cx, H - 5);
   }
 
@@ -274,7 +281,7 @@ function renderDialFace(
     ctx.stroke();
     if (major) {
       ctx.fillStyle = v >= REDLINE ? "#ff6b66" : "#cfcfd6";
-      ctx.font = "700 10px 'Segoe UI', system-ui, sans-serif";
+      ctx.font = "700 10px 'Chakra Petch','Segoe UI',sans-serif";
       ctx.fillText(
         String(v),
         cx + Math.cos(ang) * (R + 13),
@@ -284,7 +291,7 @@ function renderDialFace(
   }
 
   ctx.fillStyle = "#9b9ba6";
-  ctx.font = "700 8px 'Segoe UI', system-ui, sans-serif";
+  ctx.font = "700 8px 'Chakra Petch','Segoe UI',sans-serif";
   ctx.fillText("RPM x1000", cx, cy - 22);
   return canvas;
 }
