@@ -8,7 +8,8 @@ import {
 } from "@f1web/shared";
 import { EngineAudio } from "../audio/engine";
 import { Hud, HudCar } from "../ui/hud";
-import { buildCarVisual, CarVisual } from "./carMesh";
+import { buildCarVisual, CarVisual, CAR_VISUAL_SCALE } from "./carMesh";
+import { TireSmoke } from "./effects";
 import { ChaseCamera } from "./camera";
 import { Input } from "./input";
 import { CarSim } from "./physics";
@@ -61,6 +62,7 @@ export class Game {
   private sim: CarSim;
   private tracker: RaceTracker;
   private line: RacingLine;
+  private smoke = new TireSmoke();
   private input = new Input();
   private cam = new ChaseCamera();
   private audio = new EngineAudio();
@@ -95,6 +97,7 @@ export class Game {
     this.line = new RacingLine(this.track);
     this.world.scene.add(this.line.base, this.line.ahead);
     this.line.setVisible(localStorage.getItem("f1web.line") !== "0");
+    this.world.scene.add(this.smoke.group);
 
     this.sim = new CarSim(this.track);
     const slot = this.track.gridSlot(cfg.gridIndex);
@@ -259,6 +262,33 @@ export class Game {
       this.sim.progress,
     );
 
+    // tire smoke: wheelspin off the line, lockups, slides, wall grinds
+    const speed = Math.abs(this.sim.vF);
+    let intensity = 0;
+    if (input.throttle > 0.6 && speed > 0.5 && speed < 18 && !this.sim.onRunoff) {
+      intensity = Math.max(intensity, 0.9 * (1 - speed / 18)); // launch wheelspin
+    }
+    if (input.brake > 0.6 && speed > 22) {
+      intensity = Math.max(intensity, 0.55); // braking lockup
+    }
+    intensity = Math.max(intensity, Math.min(1, Math.abs(this.sim.vL) * 0.28)); // slides
+    if (this.sim.wallHit > 1) intensity = 1; // impacts
+    if (intensity > 0.12) {
+      // emit at both rear wheel contact patches
+      const fx = Math.sin(this.sim.heading);
+      const fz = Math.cos(this.sim.heading);
+      const back = 1.45 * CAR_VISUAL_SCALE;
+      const half = 0.8 * CAR_VISUAL_SCALE;
+      for (const side of [-1, 1]) {
+        this.smoke.emit(
+          this.sim.x - fx * back + fz * side * half,
+          this.sim.z - fz * back - fx * side * half,
+          intensity * 0.5,
+          STEP,
+        );
+      }
+    }
+
     if (this.tracker.finished && !this.finishedNotified) {
       this.finishedNotified = true;
       this.input.enabled = false;
@@ -276,6 +306,8 @@ export class Game {
     for (const w of this.selfVis.wheels) w.rotation.x = this.wheelSpin;
 
     this.line.update(this.sim.trackIdx, Math.abs(this.sim.vF));
+
+    this.smoke.update(dt);
 
     // remote cars
     const renderT = t - INTERP_DELAY_MS;
@@ -328,6 +360,7 @@ export class Game {
     window.removeEventListener("keydown", this.audioKickstart);
     for (const rc of this.remotes.values()) rc.dispose();
     this.remotes.clear();
+    this.smoke.dispose();
     this.line.dispose();
     this.selfVis.dispose();
     this.trackVis.dispose();
