@@ -3,7 +3,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import {
   GO_HOLD_MAX_MS,
   GO_HOLD_MIN_MS,
-  INTERP_DELAY_MS,
+  NET_SEND_HZ,
   TRACK_MAP,
   type NetCarState,
   type PlayerInfo,
@@ -51,6 +51,12 @@ export interface GameConfig {
   gridIndex: number;
   /** fires once when the local car completes the final lap */
   onSelfFinished?: (totalMs: number, bestLapMs: number) => void;
+  /**
+   * online: called at an exact NET_SEND_HZ cadence from the fixed physics
+   * step (a wall-clock interval would drift and alias against the server's
+   * relay tick, which renders as stutter on other screens)
+   */
+  onSelfState?: (s: NetCarState) => void;
   /** Esc pressed */
   onExit: () => void;
 }
@@ -76,6 +82,7 @@ export class Game {
   private raf = 0;
   private lastT = 0;
   private acc = 0;
+  private netAccum = 0;
   private started = false;
   private finishedNotified = false;
   /** remotes we're currently touching — full impulse only on contact entry */
@@ -225,6 +232,7 @@ export class Game {
 
   getNetState(): NetCarState {
     return {
+      ts: Math.round(performance.now()),
       x: round2(this.sim.x),
       z: round2(this.sim.z),
       h: round3(this.sim.heading),
@@ -270,6 +278,15 @@ export class Game {
   private fixedStep(now: number) {
     const input = this.input.read(STEP);
     this.sim.step(STEP, input);
+
+    // own-state uplink, locked to the simulation clock
+    if (this.cfg.onSelfState) {
+      this.netAccum += STEP;
+      if (this.netAccum >= 1 / NET_SEND_HZ) {
+        this.netAccum -= 1 / NET_SEND_HZ;
+        this.cfg.onSelfState(this.getNetState());
+      }
+    }
 
     // car-to-car contact: elliptical envelope in our frame, with the
     // response split by WHERE the contact is — frontal hits stop the car,
@@ -390,9 +407,8 @@ export class Game {
 
     this.smoke.update(dt);
 
-    // remote cars
-    const renderT = t - INTERP_DELAY_MS;
-    for (const rc of this.remotes.values()) rc.update(renderT, dt);
+    // remote cars (each manages its own clock offset + jitter buffer)
+    for (const rc of this.remotes.values()) rc.update(t, dt);
 
     this.cam.update(dt, this.sim.x, this.sim.z, this.sim.heading, Math.abs(this.sim.vF));
     this.audio.update(this.sim.vF, this.input.enabled ? this.input.read(0).throttle : 0);

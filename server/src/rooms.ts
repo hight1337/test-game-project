@@ -198,11 +198,12 @@ class Room {
         const s = msg.s;
         if (
           s &&
-          [s.x, s.z, s.h, s.v, s.st, s.lap, s.prog].every(
+          [s.ts, s.x, s.z, s.h, s.v, s.st, s.lap, s.prog].every(
             (n) => typeof n === "number" && Number.isFinite(n),
           )
         ) {
           c.state = {
+            ts: s.ts,
             x: s.x,
             z: s.z,
             h: s.h,

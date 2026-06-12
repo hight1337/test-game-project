@@ -8,8 +8,8 @@ export const DEFAULT_PORT = 8090;
 export const NET_SEND_HZ = 20;
 /** How often the server broadcasts all car states to a room. */
 export const NET_BROADCAST_HZ = 20;
-/** Render delay for remote cars (interpolation buffer). */
-export const INTERP_DELAY_MS = 120;
+// Remote-car playback delay is adaptive (see client RemoteCar): it tracks
+// measured network jitter instead of using a fixed buffer.
 
 /** grid-prep window before the start lights begin */
 export const PREP_MS = 10_000;

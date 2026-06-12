@@ -2,7 +2,6 @@ import * as THREE from "three";
 import {
   CAR_COLORS,
   LIGHTS_MS,
-  NET_SEND_HZ,
   PREP_MS,
   type ResultEntry,
   type RoomInfo,
@@ -161,6 +160,9 @@ function wireNet(n: NetClient) {
       onExit: () => showMenu(), // Esc = leave the race entirely
       onSelfFinished: (totalMs, bestLapMs) =>
         net?.send({ t: "finished", totalMs, bestLapMs }),
+      onSelfState: (s) => {
+        if (net?.connected) net.send({ t: "state", s });
+      },
     });
     for (const p of m.room.players) {
       if (p.id !== selfId) game.addRemote(p);
@@ -196,13 +198,6 @@ function wireNet(n: NetClient) {
     });
   });
 }
-
-// own-car state uplink
-setInterval(() => {
-  if (net?.connected && game && room) {
-    net.send({ t: "state", s: game.getNetState() });
-  }
-}, 1000 / NET_SEND_HZ);
 
 showMenu();
 

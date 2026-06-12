@@ -1,6 +1,12 @@
 /** Wire format: JSON messages over a WebSocket. */
 
 export interface NetCarState {
+  /**
+   * sender's clock at capture time, ms. Receivers play remote cars back in
+   * THIS time domain (via a clock-offset estimate), so network jitter can't
+   * distort the spacing between snapshots.
+   */
+  ts: number;
   /** position, meters */
   x: number;
   z: number;
