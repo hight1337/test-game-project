@@ -1,0 +1,9 @@
+# One-click deploy: Render Dashboard -> New -> Blueprint -> select this repo.
+# Free plan: sleeps after ~15 idle minutes; first visit wakes it (~40s).
+services:
+  - type: web
+    name: f1-web-racer
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    autoDeploy: true
