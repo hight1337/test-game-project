@@ -66,9 +66,12 @@ export class Screens {
         </div>
         <button id="m-practice" class="secondary">PRACTICE SOLO</button>
         <div class="divider"><span>RACE WITH FRIENDS</span></div>
-        <button id="m-create">CREATE RACE</button>
-        <div class="join-box">
-          <label>GOT A CODE FROM A FRIEND? ENTER IT HERE</label>
+        <div class="row">
+          <button id="m-create">CREATE RACE</button>
+          <button id="m-show-join" class="secondary" type="button">JOIN WITH CODE</button>
+        </div>
+        <div class="join-box hidden" id="m-join-box">
+          <label>TYPE THE 4-LETTER CODE FROM YOUR FRIEND</label>
           <div class="join-row">
             <input id="m-code" maxlength="4" placeholder="ABCD" autocomplete="off" />
             <button id="m-join">JOIN RACE</button>
@@ -105,6 +108,13 @@ export class Screens {
     codeEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") join();
     });
+    $("m-show-join").onclick = () => {
+      const box = $("m-join-box");
+      box.classList.toggle("hidden");
+      const open = !box.classList.contains("hidden");
+      $("m-show-join").classList.toggle("active", open);
+      if (open) codeEl.focus();
+    };
   }
 
   // ---- lobby ---------------------------------------------------------------
